@@ -3,17 +3,17 @@
 # exclude servers from group lists
 # allow domain suffix
 # allow for username per host
+# groups of groups
 
 
 class Nsh
-	require 'net/ssh'
 	require 'optparse'
 	require 'rubygems'
-	attr_accessor :password, :group_path
+	require 'net/ssh'
 
-	# Set some defaults
+	attr_accessor :password, :group_path, :server_list
 
-	def initialize (targets, type, user)
+	def initialize (targets, type, user = 't-9nburg')
 		@targets = Array.new
 		@targets |= targets
 		@group_path = "~/.nsh/groups/"
@@ -43,7 +43,6 @@ class Nsh
 			@server_list.uniq!
 		end
 		@server_list.each_with_index {|line, index| @server_list[index]=line.chomp!}
-		p @server_list
 	end
 
 	def exclude_servers (exclude)
@@ -52,7 +51,7 @@ class Nsh
 
 	def run_command (commands)
 		@output = Array.new
-		Net::SSH.start('host', 'user', :password => 'password') do |ssh|
+		Net::SSH.start(host, user, :password => password) do |ssh|
 			commands.each do |command|
 				ssh.exec!(command)
 			end
@@ -62,18 +61,53 @@ class Nsh
 end
 
 def parse_flags ()
-	options = {}
-	optparse = OptionParser.new do |opts|
-		opts.banner = "Usage: #{$0} [options] domain /doc/root/path"
-		options[:drupal] = false
-		opts.on('-d', '--drupal', 'Add options for drupal') do 
-			options[:drupal] = true
-		end
-	end
-	optparse.parse!
 end
 
 if __FILE__ == $0
-	conn = Nsh.new(['ksplit', 'ksplit_dev'], 'g')
+	options = {}
+	optparse = OptionParser.new do |opts|
+
+		opts.banner = "Usage: #{$0} [options] domain /doc/root/path"
+
+		options[:commands] = nil
+		opts.on('-c', '--command', 'Command to run') do |commands|
+			options[:commands] = commands
+		end
+
+		options[:script] = nil
+		opts.on('-x', '--script', 'Run a local bash script on the remote machine') do |script|
+			options[:script] = script
+		end
+
+		options[:list] = false
+		opts.on('-l', '--list-groups', 'List server groups') do 
+			options[:list] = true
+		end
+
+		options[:commands] = nil
+		opts.on('-w', '--wait', 'Time to wait between execution on each server (seconds)') do |commands|
+			options[:commands] = commands
+		end
+
+		options[:groups] = nil
+		opts.on('-g', '--groups', 'Select groups seperated by commas') do  |groups|
+			options[:groups] = groups
+		end
+	end
+	optparse.parse!
+
+	if ARGV.empty? && options[:groups].empty?
+		puts 'You gots to pick a group sucka!'
+		exit 1
+	else
+		options[:groups] = ARGV[1] 
+	end
+
+	#parse_flags
+	groups = options[:groups].split(',')
+	nsh = Nsh.new(groups, 'g')
+	nsh.server_list.each do |server|
+	nsh.run_command(optioins[:commands]
+	p nsh.server_list
 end
 
