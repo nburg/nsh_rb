@@ -10,22 +10,29 @@ class Nsh
 	require 'optparse'
 	require 'rubygems'
 	require 'net/ssh'
+	require 'ostruct'
 
-	attr_accessor :password, :group_path, :server_list
+	attr_accessor :password, :group_path, :host_list, :host, :ssh_user
 
-	def initialize (targets, type, user = 't-9nburg')
-		@targets = Array.new
-		@targets |= targets
+	def initialize (groups, hosts)
+		@groups = groups
+		@hosts = hosts
 		@group_path = "~/.nsh/groups/"
-		@user = user
-		@type = set_type(type)
-
-		if @type =~ /^gs?$/
-			build_server_list
-		end
+		build_host_list
 	end
 
-	def set_type (type)
+	def build_host_list ()
+		@host_list = []
+		@groups.each do |group|
+			regroup = File.expand_path(@group_path + group)
+			File.readlines(regroup).each {|line| @host_list << line.chomp}
+		end
+		@host_list |= @hosts
+		@host_list.sort!
+		@host_list.uniq!
+	end
+
+	def check_type (type)
 		if type =~ /^(gs\?|s)$/
 			print "Error! Type must be \"g\", \"gs\" or \"s\".\n"
 			return 1
@@ -34,80 +41,79 @@ class Nsh
 		end
 	end
 
-	def build_server_list ()
-		@server_list = Array.new
-		@targets.each do |group|
-			regroup = File.expand_path(@group_path + group)
-			@server_list |= File.readlines(regroup)
-			@server_list.sort!
-			@server_list.uniq!
-		end
-		@server_list.each_with_index {|line, index| @server_list[index]=line.chomp!}
-	end
-
 	def exclude_servers (exclude)
-		exclude.each {|item| @server_list.delete(item)}
+		exclude.each {|item| @host_list.delete(item)}
 	end
 
-	def run_command (commands)
+	def traverse_servers
+	end
+
+	def run_commands (commands)
 		@output = Array.new
-		Net::SSH.start(host, user, :password => password) do |ssh|
-			commands.each do |command|
-				ssh.exec!(command)
+		@host_list.each do |server|
+			Net::SSH.start(server, @user, :password => password) do |ssh|
+				puts "---=== #{server} ===---"
+				commands.each { |command| ssh.exec(command) }
 			end
 		end
 	end
-
 end
 
 def parse_flags ()
+	options = OpenStruct.new
+
+	options.groups   = []
+	options.commands = []
+	options.hosts    = []
+	options.wait     = 0
+	options.group_path = '~/.nsh/groups'
+
+
+	opts = OptionParser.new do |opts|
+		opts.banner = "Usage: #{$0} blah blah"
+		opts.separator ""
+		opts.separator "Specific options:"
+
+		opts.on( '-h', '--help', 'Display this screen') do
+			puts opts
+			exit
+		end
+
+		opts.on('-c', '--command COMMAND', 'Select groups seperated by commas') do |command|
+			options.commands << command
+		end
+
+		opts.on('-g', '--groups x,y,z', Array, 'Select groups seperated by commas') do |groups|
+			options.groups = groups
+		end
+
+		opts.on('-l', '--list GROUP', "List hosts in GROUP") do |group|
+			options.list = group
+		end
+
+		opts.on('-p', '--group-path PATH', "Set path to group files") do |path|
+			options.group_path = path
+		end
+
+		opts.on('-h', '--hosts x,y,z', Array, 'List of individual hosts to iterate') do |hosts|
+			options.hosts = hosts
+		end
+
+		opts.on('-w', '--wait SEC', 'Time to wait between executing on hosts') do |sec|
+			options.wait = seconds
+		end
+
+	end
+	opts.parse!
+
+	options
 end
 
 if __FILE__ == $0
-	options = {}
-	optparse = OptionParser.new do |opts|
-
-		opts.banner = "Usage: #{$0} [options] domain /doc/root/path"
-
-		options[:commands] = nil
-		opts.on('-c', '--command', 'Command to run') do |commands|
-			options[:commands] = commands
-		end
-
-		options[:script] = nil
-		opts.on('-x', '--script', 'Run a local bash script on the remote machine') do |script|
-			options[:script] = script
-		end
-
-		options[:list] = false
-		opts.on('-l', '--list-groups', 'List server groups') do 
-			options[:list] = true
-		end
-
-		options[:commands] = nil
-		opts.on('-w', '--wait', 'Time to wait between execution on each server (seconds)') do |commands|
-			options[:commands] = commands
-		end
-
-		options[:groups] = nil
-		opts.on('-g', '--groups', 'Select groups seperated by commas') do  |groups|
-			options[:groups] = groups
-		end
-	end
-	optparse.parse!
-
-	if ARGV.empty? && options[:groups].empty?
-		puts 'You gots to pick a group sucka!'
-		exit 1
-	else
-		options[:groups] = ARGV[1] 
-	end
-
-	#parse_flags
-	groups = options[:groups].split(',')
-	nsh = Nsh.new(groups, 'g')
-	nsh.server_list.each do |server|
-	nsh.run_command(optioins[:commands]
-	p nsh.server_list
+	options = parse_flags
+	p options.commands
+	nsh = Nsh.new(options.groups, options.hosts)
+	nsh.ssh_user = 't-9nburg'
+	nsh.run_commands(options.commands)
 end
 
