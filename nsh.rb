@@ -62,11 +62,12 @@ end
 def parse_flags ()
 	options = OpenStruct.new
 
-	options.groups   = []
-	options.commands = []
-	options.hosts    = []
-	options.wait     = 0
+	options.banner     = true
+	options.commands   = []
 	options.group_path = '~/.nsh/groups'
+	options.groups     = []
+	options.hosts      = []
+	options.wait       = 0
 
 
 	opts = OptionParser.new do |opts|
