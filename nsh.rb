@@ -21,15 +21,26 @@ class Nsh
 		build_host_list
 	end
 
+	def add_groups
+		@groups.select( do |group|
+			group_loc = File.expand_path(@group_path + group)
+			if group_loc =~ /\.g$/
+				File.readlines(regroup).each do |line|
+					@host_list << line.chomp
+				end
+			end
+		end
+	end
+
+	def add_hosts
+		@host_list |= @hosts
+	end
+
 	def build_host_list ()
 		@host_list = []
-		@groups.each do |group|
-			regroup = File.expand_path(@group_path + group)
-			File.readlines(regroup).each {|line| @host_list << line.chomp}
-		end
+		add_groups
+		add_hosts
 		@host_list |= @hosts
-		@host_list.sort!
-		@host_list.uniq!
 	end
 
 	def check_type (type)
@@ -41,8 +52,11 @@ class Nsh
 		end
 	end
 
+	def clean_host_list 
 	def exclude_servers (exclude)
 		exclude.each {|item| @host_list.delete(item)}
+		@host_list.sort!
+		@host_list.uniq!
 	end
 
 	def traverse_servers
@@ -68,7 +82,6 @@ def parse_flags ()
 	options.groups     = []
 	options.hosts      = []
 	options.wait       = 0
-
 
 	opts = OptionParser.new do |opts|
 		opts.banner = "Usage: #{$0} blah blah"
