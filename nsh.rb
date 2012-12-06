@@ -14,49 +14,55 @@ class Nsh
   require 'net/ssh'
   require 'ostruct'
 
-  attr_accessor :password, :group_path, :host_list, :host, :ssh_user
+  attr_accessor :password, :group_path, :host_list, :host, :ssh_user, :options
+  
 
   def initialize (options)
     @options    = options
-    @groups     = groups
-    @hosts      = hosts
-    @group_path = File.expand_path("~/.nsh/groups") + "/"
     build_host_list
   end
 
-  def add_groups
-    @groups.each do |group|
-      if group =~ /\.g$/
-        group_groups(group)
-      else
-        File.readlines(@group_path + group).each {|line| @host_list << line.chomp}
-      end
+  # Adds to @host_list from groups specified in @options.groups
+  def add_groups(group)
+    File.readlines(@options.group_path + group).each {|line| @host_list << line.chomp}
+  end
+
+  # Adds groups of groups to @host_list
+  def add_group_of_groups (group)
+    File.readlines(@options.group_path + group).each do |line|
+      add_groups(line)
     end
   end
 
-  def group_groups (group)
-    File.readlines(@group_path + group).each do |line|
-      File.readlines(@group_path + line.chomp).each {|line| @host_list << line.chomp}
-    end
-  end
-
+  # Adds a list of individual host to @host_list
   def add_hosts
-    @host_list |= @hosts
+    @host_list |= @options.hosts
   end
 
+  # This will give us the variable @host_list. These are the hosts that we want
+  # to run commmands on
   def build_host_list
     @host_list = []
-    add_groups
+    @options.groups.each do |group|
+      # Group files ending in .g will be processed as a groups of groups
+      if group =~ /\.g$/
+        add_group_of_groups(group)
+      else
+        add_groups(group)
+      end
+    end
     add_hosts
     clean_host_list
     p @host_list
   end
 
+  # Sort and remove dupes from the @host_list
   def clean_host_list 
     @host_list.sort!
     @host_list.uniq!
   end
 
+  # Remove 
   def exclude_servers (exclude)
     exclude.each {|item| @host_list.delete(item)}
   end
@@ -64,7 +70,7 @@ class Nsh
   def traverse_servers
   end
 
-  def run_commands (commands)
+  def run_commands (commands = @options.commands)
     @output = Array.new
     @host_list.each do |server|
       puts "---=== #{server} ===---"
@@ -74,14 +80,16 @@ class Nsh
     end
   end
 
-  def parse_flags ()
+  def self.parse_flags
     options = OpenStruct.new
 
     options.banner     = true
     options.commands   = []
-    options.group_path = '~/.nsh/groups'
+    options.exclude    = []
+    options.group_path = File.expand_path('~/.nsh/groups') + '/'
     options.groups     = []
     options.hosts      = []
+    options.script     = ''
     options.wait       = 0
 
     opts = OptionParser.new do |opts|
@@ -102,6 +110,10 @@ class Nsh
         options.groups = groups
       end
 
+      opts.on('-H', '--hosts x,y,z', Array, 'List of individual hosts to iterate') do |hosts|
+        options.hosts = hosts
+      end
+
       opts.on('-l', '--list GROUP', "List hosts in GROUP") do |group|
         options.list = group
       end
@@ -110,12 +122,16 @@ class Nsh
         options.group_path = path
       end
 
-      opts.on('-h', '--hosts x,y,z', Array, 'List of individual hosts to iterate') do |hosts|
-        options.hosts = hosts
+      opts.on('-s', '--script SCRIPT', 'Execute local script on remote hosts') do |script|
+        options.exclude = script
       end
 
       opts.on('-w', '--wait SEC', 'Time to wait between executing on hosts') do |sec|
         options.wait = seconds
+      end
+
+      opts.on('-x', '--exclude x,y,z', 'Exclude specific hosts from listed groups') do |hosts|
+        options.exclude = hosts
       end
 
     end
@@ -127,9 +143,8 @@ class Nsh
 end
 
 if __FILE__ == $0
-  options = parse_flags
   nsh = Nsh.new(Nsh.parse_flags)
   nsh.ssh_user = 't-9nburg'
-  nsh.run_commands(options.commands)
+  nsh.run_commands
 end
 
