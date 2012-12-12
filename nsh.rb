@@ -173,19 +173,6 @@ class Nsh
   end
 end
 
-def get_memory_usage
-  `ps -o rss= -p #{Process.pid}`.to_i
-end
-
-def nothing
-  nsh = Nsh.new(
-    :groups     => ['ksplit'], 
-    :commands   => ['uptime && whoami'],
-    :group_path => File.expand_path('~/.nsh/groups') + '/',
-    :exclude    => ['wallaby']
-  )
-end
-
 if __FILE__ == $0
   nsh = Nsh.new
   nsh.parse_flags
