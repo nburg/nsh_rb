@@ -42,7 +42,7 @@ class Nsh
   # Adds groups of groups to @host_list. Need to add a check for loops.
   def add_group_of_groups (group)
     File.readlines(@opts[:group_path] + group).each do |line|
-      add_groups(line.chomp)
+      add_group(line.chomp)
     end
   end
 
