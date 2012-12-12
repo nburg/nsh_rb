@@ -2,3 +2,5 @@
 -add configuration file
 -need to do some sort of error handling
 -build some tests
+-set user and password
+-need to set required flags for cli

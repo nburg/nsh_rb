@@ -1,14 +1,17 @@
 #!/usr/bin/ruby
 
+require 'optparse'
+require 'net/ssh'
+require 'io/console'
+  
 class Nsh
-  require 'optparse'
-  require 'net/ssh'
 
   attr_accessor :host_list, :opts
   
   def initialize (opts = {})
     @opts   = {
       :banner     => true,
+      :change_user => false,
       :commands   => [],
       :confirm    => false,
       :excludes   => [],
@@ -16,6 +19,7 @@ class Nsh
       :groups     => [],
       :hosts      => [],
       :script     => '',
+      :user       => ENV['USER'],
       :wait       => 0
     }.merge(opts)
     @host_list = []
@@ -94,14 +98,14 @@ class Nsh
 
   def run_commands (commands = @opts[:commands], 
                     wait = @opts[:wait], 
-                    ssh_user = @opts[:ssh_user], 
-                    ssh_password = @opts[:password])
+                    user = @opts[:user], 
+                    password = @opts[:password])
     @output = Array.new
     first_run = true
     @host_list.each do |server|
       sleep wait unless first_run
       puts "---=== #{server} ===---"
-      Net::SSH.start(server, ssh_user, :password => ssh_password) do |ssh|
+      Net::SSH.start(server, user, :password => password) do |ssh|
         commands.each { |command| ssh.exec(command) }
       end
       first_run = false
@@ -109,6 +113,10 @@ class Nsh
   end
 
   def run_script
+  end
+
+  def set_password
+    @opts[:password] = STDIN.noecho(&:gets)
   end
 
   def parse_flags
@@ -135,7 +143,10 @@ class Nsh
       op.on('-l', '--list GROUP', "List hosts in GROUP") do |group|
         @opts[:list] = group
       end
-      op.on('-p', '--group-path PATH', "Set path to group files") do |path|
+      op.on('-p', '--[no-]password', 'Set password') do |maybe|
+        @opts[:set_pass] = maybe
+      end
+      op.on('-P', '--group-path PATH', "Set path to group files") do |path|
         @opts[:group_path] = path
       end
       op.on('-s', '--script SCRIPT', 'Execute local script on remote hosts') do |script|
@@ -146,6 +157,9 @@ class Nsh
       end
       op.on('--suffix SUFFIX', 'Add suffix to domain names listed in groups') do |suffix|
         @opts[:suffix] = suffix
+      end
+      op.on('-u', '--user USER', 'Set user to connect with. Defaults to current user.') do |user|
+        @opts[:user] = user
       end
       op.on('-w', '--wait SEC', 'Time to wait between executing on hosts') do |sec|
         @opts[:wait] = sec.to_i
@@ -176,13 +190,16 @@ if __FILE__ == $0
   nsh = Nsh.new
   nsh.parse_flags
   nsh.build_host_list
+
   if nsh.opts[:suffix] != nil
     nsh.add_suffix
   end
-  if nsh.opts[:confirm]
-    confirmation = nsh.confirmed?
-  else
-    confirmation = true
+
+  confirmation = true
+  confirmation = nsh.confirmed? if nsh.opts[:confirm]
+  if nsh.opts[:set_pass]
+    print 'Password: '
+    nsh.set_password 
   end
   if confirmation
     nsh.run_commands
