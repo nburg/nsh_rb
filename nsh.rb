@@ -1,22 +1,16 @@
 #!/usr/bin/ruby
-# TODO
-# allow domain suffix
-# allow for username per host
-# make host sorting an option
-# add configuration file
-# confirmation flag
 
 class Nsh
   require 'optparse'
-  require 'rubygems'
   require 'net/ssh'
 
-  attr_accessor :host_list, :options
+  attr_accessor :host_list, :opts
   
   def initialize (opts = {})
     @opts   = {
       :banner     => true,
       :commands   => [],
+      :confirm    => false,
       :excludes   => [],
       :group_path => File.expand_path('~/.nsh/groups') + '/',
       :groups     => [],
@@ -57,6 +51,10 @@ class Nsh
     @host_list |= @opts[:hosts]
   end
 
+  def add_suffix
+    @host_list.collect! {|x| x + @opts[:suffix]}
+  end
+
   # This will give us the variable @host_list. These are the hosts that we want
   # to run commmands on
   def build_host_list
@@ -69,8 +67,24 @@ class Nsh
 
   # Sort and remove dupes from the @host_list
   def clean_host_list 
-    @host_list.sort!
+    if @opts[:sort]
+      @host_list.sort!
+    end
     @host_list.uniq!
+  end
+
+  def confirmed?
+    puts 'Run the commands:'
+    p @opts[:commands]
+    puts 'On:'
+    p @host_list
+    print '[y/n]: '
+    confirmation = gets.chomp
+    if confirmation == 'y'
+      true
+    else
+      false
+    end
   end
 
   # Remove 
@@ -109,6 +123,9 @@ class Nsh
       op.on('-c', '--command COMMAND', 'Select groups seperated by commas') do |command|
         @opts[:commands] << command
       end
+      op.on('--[no-]confirm', 'To confirm or not to confirm before executing') do |confirm|
+        @opts[:confirm] = confirm
+      end
       op.on('-g', '--groups x,y,z', Array, 'Select groups seperated by commas') do |groups|
         @opts[:groups] = groups
       end
@@ -123,6 +140,9 @@ class Nsh
       end
       op.on('-s', '--script SCRIPT', 'Execute local script on remote hosts') do |script|
         @opts[:script] = script
+      end
+      op.on('--[no-]sort', 'Sort host execution order') do |sort|
+        @opts[:sort] = sort
       end
       op.on('--suffix SUFFIX', 'Add suffix to domain names listed in groups') do |suffix|
         @opts[:suffix] = suffix
@@ -155,6 +175,16 @@ end
 if __FILE__ == $0
   nsh = Nsh.new
   nsh.parse_flags
-  p nsh.build_host_list
-  nsh.run_commands
+  nsh.build_host_list
+  if nsh.opts[:suffix] != nil
+    nsh.add_suffix
+  end
+  if nsh.opts[:confirm]
+    confirmation = nsh.confirmed?
+  else
+    confirmation = true
+  end
+  if confirmation
+    nsh.run_commands
+  end
 end

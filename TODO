@@ -1,0 +1,4 @@
+-allow for username per host
+-add configuration file
+-need to do some sort of error handling
+-build some tests
