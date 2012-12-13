@@ -30,10 +30,11 @@ class Nsh
     File.readlines(@opts[:group_path] + group).each do |line| 
       @host_list << line.chomp
     end
+    @host_list
   end
 
-  def add_groups
-    @opts[:groups].each do |group|
+  def add_groups (groups = @opts[:groups])
+    groups.each do |group|
       # Group files ending in .g will be processed as a groups of groups
       if group =~ /\.g$/
         add_group_of_groups(group)
@@ -41,6 +42,7 @@ class Nsh
         add_group(group)
       end
     end
+    @host_list
   end
 
   # Adds groups of groups to @host_list. Need to add a check for loops.
@@ -48,15 +50,19 @@ class Nsh
     File.readlines(@opts[:group_path] + group).each do |line|
       add_group(line.chomp)
     end
+    @host_list
   end
 
   # Adds a list of individual host to @host_list
-  def add_hosts
-    @host_list |= @opts[:hosts]
+  def add_hosts (hosts = @opts[:hosts])
+    @host_list |= hosts
+    @host_list
   end
 
-  def add_suffix
-    @host_list.collect! {|x| x + @opts[:suffix]}
+  def add_suffix (suffix = @opts[:suffix])
+    suffix = '.'+ suffix if suffix !~ /^\./
+    @host_list.collect! {|x| x + suffix}
+    @host_list
   end
 
   # This will give us the variable @host_list. These are the hosts that we want
@@ -94,6 +100,7 @@ class Nsh
   # Remove 
   def exclude_hosts (exclude = @opts[:excludes])
     exclude.each {|item| @host_list.delete(item)}
+    @host_list
   end
 
   def run_commands (commands = @opts[:commands], 
