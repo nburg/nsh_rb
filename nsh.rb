@@ -19,7 +19,7 @@ class Nsh
       :groups     => [],
       :hosts      => [],
       :script     => '',
-      :user       => ENV['USER'],
+      :user       => nil,
       :wait       => 0
     }.merge(opts)
     @host_list = []
