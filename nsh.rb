@@ -14,7 +14,6 @@ class Nsh
       :change_user => false,
       :commands    => [],
       :confirm     => false,
-      :excludes    => [],
       :group_path  => File.expand_path('~/.nsh/groups') + '/',
       :groups      => [],
       :hosts       => [],
@@ -27,7 +26,7 @@ class Nsh
   end
 
   # Adds to @host_list from groups specified in @opts[:groups]
-  def add_group(group)
+  def add_group (group)
     File.readlines(@opts[:group_path] + group).each do |line| 
       @host_list << line.chomp
     end
@@ -36,12 +35,8 @@ class Nsh
 
   def add_groups (groups = @opts[:groups])
     groups.each do |group|
-      # Group files ending in .g will be processed as a groups of groups
-      if group =~ /\.g$/
-        add_group_of_groups(group)
-      else
-        add_group(group)
-      end
+    # Group files ending in .g will be processed as a groups of groups
+      group =~ /\.g$/ ? add_group_of_groups(group) : add_group(group)
     end
     @host_list
   end
@@ -57,11 +52,10 @@ class Nsh
   # Adds a list of individual host to @host_list
   def add_hosts (hosts = @opts[:hosts])
     @host_list |= hosts
-    @host_list
   end
 
   def add_suffix (suffix = @opts[:suffix])
-    suffix = '.'+ suffix if suffix !~ /^\./
+    suffix = '.' + suffix unless suffix =~ /^\./
     @host_list.collect! {|x| x + suffix}
     @host_list
   end
@@ -71,16 +65,14 @@ class Nsh
   def build_host_list
     add_groups
     add_hosts
-    exclude_hosts if @opts[:excludes] != nil
+    exclude_hosts unless @opts[:excludes] == nil
     clean_host_list
     @host_list
   end
 
   # Sort and remove dupes from the @host_list
   def clean_host_list 
-    if @opts[:sort]
-      @host_list.sort!
-    end
+    @host_list.sort! if @opts[:sort]
     @host_list.uniq!
   end
 
@@ -91,11 +83,7 @@ class Nsh
     p @host_list
     print '[y/n]: '
     confirmation = gets.chomp
-    if confirmation == 'y'
-      true
-    else
-      false
-    end
+    confirmation == 'y'
   end
 
   # Remove 
@@ -186,17 +174,14 @@ if __FILE__ == $0
   nsh.parse_flags
   nsh.build_host_list
 
-  if nsh.opts[:suffix] != nil
-    nsh.add_suffix
-  end
+  nsh.add_suffix unless nsh.opts[:suffix] == nil
+  confirmed = true
+  confirmed = nsh.confirmed? if nsh.opts[:confirm]
 
-  confirmation = true
-  confirmation = nsh.confirmed? if nsh.opts[:confirm]
   if nsh.opts[:set_pass]
     print 'Password: '
     nsh.set_password 
   end
-  if confirmation
-    nsh.run_commands
-  end
+
+  nsh.run_commands if confirmed
 end
