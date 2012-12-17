@@ -19,6 +19,7 @@ class Nsh
       :groups      => [],
       :hosts       => [],
       :script      => '',
+      :sort        => true,
       :user        => nil,
       :wait        => 0
     }.merge(opts)
