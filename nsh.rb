@@ -10,17 +10,17 @@ class Nsh
   
   def initialize (opts = {})
     @opts   = {
-      :banner     => true,
+      :banner      => true,
       :change_user => false,
-      :commands   => [],
-      :confirm    => false,
-      :excludes   => [],
-      :group_path => File.expand_path('~/.nsh/groups') + '/',
-      :groups     => [],
-      :hosts      => [],
-      :script     => '',
-#     :user       => ENV['USER'],
-      :wait       => 0
+      :commands    => [],
+      :confirm     => false,
+      :excludes    => [],
+      :group_path  => File.expand_path('~/.nsh/groups') + '/',
+      :groups      => [],
+      :hosts       => [],
+      :script      => '',
+      :user        => nil,
+      :wait        => 0
     }.merge(opts)
     @host_list = []
   end
@@ -147,7 +147,7 @@ class Nsh
       op.on('-H', '--hosts x,y,z', Array, 'List of individual hosts to iterate') do |hosts|
         @opts[:hosts] = hosts
       end
-      op.on('-l', '--list GROUP', "List hosts in GROUP") do |group|
+      op.on('-l', '--list GROUP', 'List hosts in GROUP') do |group|
         @opts[:list] = group
       end
       op.on('-p', '--[no-]password', 'Set password') do |maybe|
@@ -165,7 +165,7 @@ class Nsh
       op.on('--suffix SUFFIX', 'Add suffix to domain names listed in groups') do |suffix|
         @opts[:suffix] = suffix
       end
-      op.on('-u', '--user USER', 'Set user to connect with. Defaults to current user.') do |user|
+      op.on('-u', '--user USER', 'Set user to connect with. Defaults to current user') do |user|
         @opts[:user] = user
       end
       op.on('-w', '--wait SEC', 'Time to wait between executing on hosts') do |sec|
