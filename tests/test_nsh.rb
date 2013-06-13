@@ -17,7 +17,8 @@ class TestNshGroups < Test::Unit::TestCase
   end
 
   must 'return lines from testgroup 1 and 2' do
-    assert_equal @nsh.add_group_of_groups('testgroup.g'), @tg1 + @tg2
+    @nsh.add_group_of_groups('testgroup.g')
+    assert_equal @nsh.host_list, @tg1 + @tg2
   end
 
   must 'return lines from from testgroup 1 2 and 3' do

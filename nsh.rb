@@ -46,7 +46,6 @@ class Nsh
     File.readlines(@opts[:group_path] + group).each do |line|
       add_group(line.chomp)
     end
-    @host_list
   end
 
   # Adds a list of individual host to @host_list
@@ -57,7 +56,6 @@ class Nsh
   def add_suffix (suffix = @opts[:suffix])
     suffix = '.' + suffix unless suffix =~ /^\./
     @host_list.collect! {|x| x + suffix}
-    @host_list
   end
 
   # This will give us the variable @host_list. These are the hosts that we want
