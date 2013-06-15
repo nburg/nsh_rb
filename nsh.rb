@@ -122,43 +122,81 @@ class Nsh
         puts op
         exit
       end
-      op.on('-c', '--command COMMAND', 'Select groups seperated by commas') do |command|
+
+      op.on('-c', '--command COMMAND',
+            'Select groups seperated by commas'
+           ) do |command|
         @opts[:commands] << command
       end
-      op.on('--[no-]confirm', 'To confirm or not to confirm before executing') do |confirm|
+
+      op.on('--[no-]confirm',
+            'To confirm or not to confirm before executing'
+           ) do |confirm|
         @opts[:confirm] = confirm
       end
-      op.on('-g', '--groups x,y,z', Array, 'Select groups seperated by commas') do |groups|
+      op.on('-g', '--groups x,y,z', Array,
+            'Select groups seperated by commas'
+           ) do |groups|
         @opts[:groups] = groups
       end
-      op.on('-H', '--hosts x,y,z', Array, 'List of individual hosts to iterate') do |hosts|
+
+      op.on('-H', '--hosts x,y,z', Array,
+            'List of individual hosts to iterate'
+           ) do |hosts|
         @opts[:hosts] = hosts
       end
-      op.on('-l', '--list GROUP', 'List hosts in GROUP') do |group|
+
+      op.on('-l', '--list GROUP',
+            'List hosts in GROUP'
+           ) do |group|
         @opts[:list] = group
       end
-      op.on('-p', '--[no-]password', 'Set password') do |maybe|
+
+      op.on('-p', '--[no-]password',
+            'Set password'
+           ) do |maybe|
         @opts[:set_pass] = maybe
       end
-      op.on('-P', '--group-path PATH', "Set path to group files") do |path|
+
+      op.on('-P', '--group-path PATH',
+            "Set path to group files"
+           ) do |path|
         @opts[:group_path] = path
       end
-      op.on('-s', '--script SCRIPT', 'Execute local script on remote hosts') do |script|
+
+      op.on('-s', '--script SCRIPT',
+            'Execute local script on remote hosts'
+           ) do |script|
         @opts[:script] = script
       end
-      op.on('--[no-]sort', 'Sort host execution order') do |sort|
+      
+      op.on('--[no-]sort',
+            'Sort host execution order'
+           ) do |sort|
         @opts[:sort] = sort
       end
-      op.on('--suffix SUFFIX', 'Add suffix to domain names listed in groups') do |suffix|
+
+      op.on('--suffix SUFFIX',
+            'Add suffix to domain names listed in groups'
+           ) do |suffix|
         @opts[:suffix] = suffix
       end
-      op.on('-u', '--user USER', 'Set user to connect with. Defaults to current user') do |user|
+
+      op.on('-u', '--user USER',
+            'Set user to connect with. Defaults to current user'
+           ) do |user|
         @opts[:user] = user
       end
-      op.on('-w', '--wait SEC', 'Time to wait between executing on hosts') do |sec|
+
+      op.on('-w', '--wait SEC',
+            'Time to wait between executing on hosts'
+           ) do |sec|
         @opts[:wait] = sec.to_i
       end
-      op.on('-x', '--exclude x,y,z', Array, 'Exclude specific hosts from listed groups') do |hosts|
+
+      op.on('-x', '--exclude x,y,z', Array,
+            'Exclude specific hosts from listed groups'
+           ) do |hosts|
         @opts[:excludes] = hosts
       end
     end
