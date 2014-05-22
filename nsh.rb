@@ -1,28 +1,93 @@
 #!/usr/bin/ruby
 
 require 'optparse'
-require 'net/ssh'
 require 'io/console'
+require 'sshkit'
+require 'sshkit/dsl'
   
+
+
+# Monkey patch sshkit so that run isn't broken by a single failed ssh connection
+module SSHKit
+  module Backend
+    class Netssh
+      def _execute(*args)
+        command(*args).tap do |cmd|
+          output << cmd
+          cmd.started = true
+          begin
+            ssh.open_channel do |chan|
+              chan.request_pty if Netssh.config.pty
+              chan.exec cmd.to_command do |ch, success|
+                chan.on_data do |ch, data|
+                  cmd.stdout = data
+                  cmd.full_stdout += data
+                  output << cmd
+                end
+                chan.on_extended_data do |ch, type, data|
+                  cmd.stderr = data
+                  cmd.full_stderr += data
+                  output << cmd
+                end
+                chan.on_request("exit-status") do |ch, data|
+                  cmd.stdout = ''
+                  cmd.stderr = ''
+                  cmd.exit_status = data.read_long
+                  output << cmd
+                end
+                #chan.on_request("exit-signal") do |ch, data|
+                #  # TODO: This gets called if the program is killed by a signal
+                #  # might also be a worthwhile thing to report
+                #  exit_signal = data.read_string.to_i
+                #  warn ">>> " + exit_signal.inspect
+                #  output << cmd
+                #end
+                chan.on_open_failed do |ch|
+                  # TODO: What do do here?
+                  # I think we should raise something
+                end
+                chan.on_process do |ch|
+                  # TODO: I don't know if this is useful
+                end
+                chan.on_eof do |ch|
+                  # TODO: chan sends EOF before the exit status has been
+                  # writtend
+                end
+              end
+              chan.wait
+            end
+            ssh.loop
+          rescue => e
+            cmd.exit_status = 1
+            output << cmd
+          end
+        end
+      end
+    end
+  end
+end
+
+
 class Nsh
 
   attr_accessor :host_list, :opts
   
   def initialize (opts = {})
-    @opts   = {
-      :banner      => true,
-      :change_user => false,
-      :commands    => [],
-      :confirm     => false,
-      :group_path  => File.expand_path('~/.nsh/groups') + '/',
-      :groups      => [],
-      :hosts       => [],
-      :script      => '',
-      :sort        => true,
-      :user        => nil,
-      :wait        => 0
+    @opts = {
+      commands: [],
+      confirm: false,
+      group_path: File.expand_path('~/.nsh/groups') + '/',
+      groups: [],
+      hosts: [],
+      user: ENV['USER'],
+      wait: 0
     }.merge(opts)
     @host_list = []
+    parse_flags
+    build_host_list
+    add_suffix unless @opts[:suffix] == nil
+    set_password if @opts[:set_pass]
+    set_sshkit_options
   end
 
   # Adds to @host_list from groups specified in @opts[:groups]
@@ -70,7 +135,7 @@ class Nsh
 
   # Sort and remove dupes from the @host_list
   def clean_host_list 
-    @host_list.sort! if @opts[:sort]
+    @host_list.sort!
     @host_list.uniq!
   end
 
@@ -90,27 +155,22 @@ class Nsh
     @host_list
   end
 
-  def run_commands (commands = @opts[:commands], 
-                    wait = @opts[:wait], 
-                    user = @opts[:user], 
-                    password = @opts[:password])
-    @output = Array.new
-    first_run = true
-    @host_list.each do |server|
-      sleep wait unless first_run
-      puts "---=== #{server} ===---"
-      Net::SSH.start(server, user, :password => password) do |ssh|
-        commands.each { |command| ssh.exec(command) }
-      end
-      first_run = false
+  def run_commands (commands = @opts[:commands])
+    on host_list, in: @opts[:mode], limit: @opts[:limit], wait: @opts[:wait] do
+      commands.each { |command| execute command, raise_on_non_zero_exit: false }
     end
   end
 
-  def run_script
+  def set_password
+    print 'Password: '
+    @opts[:password] = STDIN.noecho(&:gets)
   end
 
-  def set_password
-    @opts[:password] = STDIN.noecho(&:gets)
+  def set_sshkit_options
+    SSHKit::Backend::Netssh.configure do |ssh|
+      ssh.ssh_options = { user: @opts[:user] } if @opts[:user]
+    end
+    SSHKit.config.output_verbosity = Logger::DEBUG if @opts[:verbose]
   end
 
   def parse_flags
@@ -124,79 +184,102 @@ class Nsh
       end
 
       op.on('-c', '--command COMMAND',
-            'Select groups seperated by commas'
-           ) do |command|
+            'Command to execute. You can have more than one -c'
+      ) do |command|
         @opts[:commands] << command
       end
 
       op.on('--[no-]confirm',
             'To confirm or not to confirm before executing'
-           ) do |confirm|
+      ) do |confirm|
         @opts[:confirm] = confirm
       end
       op.on('-g', '--groups x,y,z', Array,
             'Select groups seperated by commas'
-           ) do |groups|
+      ) do |groups|
         @opts[:groups] = groups
       end
 
       op.on('-H', '--hosts x,y,z', Array,
             'List of individual hosts to iterate'
-           ) do |hosts|
+      ) do |hosts|
         @opts[:hosts] = hosts
       end
 
-      op.on('-l', '--list GROUP',
+      @opts[:limit] = 2
+      op.on('-l', '--limit LIMIT',
+            'Limit groups run to LIMIT hosts at a time.'
+      ) do |limit|
+        @opts[:limit] = limit.to_i
+      end
+
+      op.on('--list GROUP',
             'List hosts in GROUP'
-           ) do |group|
+      ) do |group|
         @opts[:list] = group
+      end
+
+      @opts[:mode] = :sequence
+      op.on('-m', '--mode MODE',
+            'Set execution mode to sequence, parallel, or group (s,p,g). Default s.'
+      ) do |group|
+        case group
+        when 's'
+          @opts[:mode] = :sequence
+        when 'p'
+          @opts[:mode] = :parallel
+        when 'g'
+          @opts[:mode] = :groups
+        else
+          raise
+        end
       end
 
       op.on('-p', '--[no-]password',
             'Set password'
-           ) do |maybe|
+      ) do |maybe|
         @opts[:set_pass] = maybe
       end
 
       op.on('-P', '--group-path PATH',
             "Set path to group files"
-           ) do |path|
+      ) do |path|
         @opts[:group_path] = path
       end
 
-      op.on('-s', '--script SCRIPT',
-            'Execute local script on remote hosts'
-           ) do |script|
-        @opts[:script] = script
-      end
-      
-      op.on('--[no-]sort',
-            'Sort host execution order'
-           ) do |sort|
-        @opts[:sort] = sort
+      remote_user = false
+      op.on('-r', '--remote-user REMOTEUSER',
+            'Run remote command as REMOTEUSER'
+      ) do |remote_user|
+        @opts[:remote_user] = remote_user
       end
 
       op.on('--suffix SUFFIX',
             'Add suffix to domain names listed in groups'
-           ) do |suffix|
+      ) do |suffix|
         @opts[:suffix] = suffix
       end
 
       op.on('-u', '--user USER',
             'Set user to connect with. Defaults to current user'
-           ) do |user|
+      ) do |user|
         @opts[:user] = user
+      end
+
+      @opts[:verbose] = false
+      op.on('-v', 'Show command output') do
+        @opts[:verbose] = true
       end
 
       op.on('-w', '--wait SEC',
             'Time to wait between executing on hosts'
-           ) do |sec|
+      ) do |sec|
         @opts[:wait] = sec.to_i
       end
 
       op.on('-x', '--exclude x,y,z', Array,
             'Exclude specific hosts from listed groups'
-           ) do |hosts|
+      ) do |hosts|
         @opts[:excludes] = hosts
       end
     end
@@ -207,17 +290,9 @@ end
 
 if __FILE__ == $0
   nsh = Nsh.new
-  nsh.parse_flags
-  nsh.build_host_list
 
-  nsh.add_suffix unless nsh.opts[:suffix] == nil
   confirmed = true
   confirmed = nsh.confirmed? if nsh.opts[:confirm]
-
-  if nsh.opts[:set_pass]
-    print 'Password: '
-    nsh.set_password 
-  end
 
   nsh.run_commands if confirmed
 end
