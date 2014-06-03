@@ -3,15 +3,19 @@ Network shell. Command line program to run commands on groups of servers in para
 
 ## Install
 Install ruby via the normal means. Requires 1.9.3 or higher.
-  git clone git://github.com/nburg/nsh_rb.git
-  cd nsh_rb
-  bundle install
-  mkdir -p ~/.nsh/groups
+```bash
+git clone git://github.com/nburg/nsh_rb.git
+cd nsh_rb
+bundle install
+mkdir -p ~/.nsh/groups
+```
 
 ## Usage
-  echo -e 'server1\nserver2' >> ~/.nsh/groups/fakegroup
-  bin/nsh -c uptime -g fakegroup
-  bin/nsh.rb -h
+```bash
+echo -e 'server1\nserver2' >> ~/.nsh/groups/fakegroup
+bin/nsh -c uptime -g fakegroup
+bin/nsh.rb -h
+```
 
 ## TODO
 + allow for username per host
