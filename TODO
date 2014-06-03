@@ -1,7 +1,0 @@
--allow for username per host
--add configuration file
--need to do some sort of error handling
--build some tests
--need to set required flags for cli
--autocreate default config directories in home
--add option to do all groups

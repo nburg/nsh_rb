@@ -1,0 +1,10 @@
+#!/usr/bin/ruby
+
+require 'nsh'
+
+nsh = Nsh.new
+
+confirmed = true
+confirmed = nsh.confirmed? if nsh.opts[:confirm]
+
+nsh.run_commands if confirmed
