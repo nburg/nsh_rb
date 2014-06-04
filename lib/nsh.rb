@@ -225,12 +225,3 @@ class Nsh
     @opts
   end
 end
-
-if __FILE__ == $0
-  nsh = Nsh.new
-
-  confirmed = true
-  confirmed = nsh.confirmed? if nsh.opts[:confirm]
-
-  nsh.run_commands if confirmed
-end
