@@ -1,5 +1,3 @@
-#!/usr/bin/ruby
-
 require 'optparse'
 require 'io/console'
 require 'sshkit'
@@ -28,7 +26,6 @@ class Nsh
     set_sshkit_options
   end
 
-  # Adds to @host_list from groups specified in @opts[:groups]
   def add_group (group)
     File.readlines(@opts[:group_path] + group).each do |line| 
       @host_list << line.chomp
@@ -37,21 +34,10 @@ class Nsh
   end
 
   def add_groups (groups = @opts[:groups])
-    groups.each do |group|
-    # Group files ending in .g will be processed as a groups of groups
-      group =~ /\.g$/ ? add_group_of_groups(group) : add_group(group)
-    end
+    groups.each { |group| add_group(group) }
     @host_list
   end
 
-  # Adds groups of groups to @host_list. Need to add a check for loops.
-  def add_group_of_groups (group)
-    File.readlines(@opts[:group_path] + group).each do |line|
-      add_group(line.chomp)
-    end
-  end
-
-  # Adds a list of individual host to @host_list
   def add_hosts (hosts = @opts[:hosts])
     @host_list |= hosts
   end
