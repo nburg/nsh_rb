@@ -1,4 +1,4 @@
-#nsh
+# nsh
 Network shell. Command line program to run commands on groups of servers in parallel using ssh.
 
 ## Install
